@@ -1,0 +1,32 @@
+diff --git a/src/main/java/com/strobel/decompiler/languages/java/utilities/TypeUtilities.java b/src/main/java/com/strobel/decompiler/languages/java/utilities/TypeUtilities.java
+--- a/src/main/java/com/strobel/decompiler/languages/java/utilities/TypeUtilities.java
++++ b/src/main/java/com/strobel/decompiler/languages/java/utilities/TypeUtilities.java
+@@ -362,9 +362,26 @@
+                     return null;
+                 }
+ 
+-                final MethodReference method = (MethodReference) callSite.getBootstrapArguments().get(0);
++                //
++                // The first bootstrap argument of a lambda invokedynamic is a MethodType
++                // (the erased samMethodType), which Procyon parses into an IMethodSignature,
++                // NOT a MethodReference. Casting it blindly would throw a ClassCastException
++                // (see CoreMetadataFactory$MethodSignature vs MethodReference). Follow the
++                // same convention used by getLambdaSignatureCore(): the instantiated method
++                // type is bootstrap argument 2, and its return type is the lambda's return
++                // type, which is what a return statement inside a lambda expects.
++                //
++                final List<Object> bootstrapArguments = callSite.getBootstrapArguments();
+ 
+-                return method.getDeclaringType();
++                if (bootstrapArguments.size() >= 3) {
++                    final Object instantiatedMethodType = bootstrapArguments.get(2);
++
++                    if (instantiatedMethodType instanceof IMethodSignature) {
++                        return ((IMethodSignature) instantiatedMethodType).getReturnType();
++                    }
++                }
++
++                return null;
+             }
+             else {
+                 final MethodDeclaration method = firstOrDefault(parent.getAncestors(MethodDeclaration.class));
